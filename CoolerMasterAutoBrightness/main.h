@@ -2,8 +2,6 @@
 
 void Cleanup();
 
-void AwaitExit();
-
 BYTE GetPreferedBrightness();
 
 int GetCurrentHour();
