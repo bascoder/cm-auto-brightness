@@ -1,9 +1,13 @@
 #include <iostream>
 #include <ctime>
+#include <Windows.h>
+#include <synchapi.h>
 #include "SDKDLL.h"
+#include "TaskScheduler.hpp"
 #include "main.h"
 
 using namespace std;
+using namespace literals;
 
 const int DAWN = 8;
 const int DUSK = 17;
@@ -16,9 +20,10 @@ int main() {
 	try
 	{
 		Init();
+		UpdateBrightness();
 
-		auto brightness = GetPreferedBrightness();
-		SetBrightness(brightness);
+		auto scheduler = SetupSchedule();
+		MainLoop(scheduler);
 
 		AwaitExit();
 	}
@@ -35,6 +40,11 @@ int main() {
 void Init()
 {
 	atexit(ExitHandler);
+	if (!SetConsoleCtrlHandler(ConsoleHandler, TRUE)) {
+		cerr << "ERROR: Could not set control handler" << endl;
+
+		exit(EXIT_FAILURE);
+	}
 
 	SetControlDevice(DEV_MKeys_L_White);
 
@@ -43,11 +53,41 @@ void Init()
 	}
 }
 
+tsc::TaskScheduler* SetupSchedule()
+{
+	static tsc::TaskScheduler* scheduler = new tsc::TaskScheduler();
+	scheduler->Schedule(30min, [](tsc::TaskContext context)
+	{
+		UpdateBrightness();
+
+		context.Repeat();
+	});
+
+	return scheduler;
+}
+
+void UpdateBrightness()
+{
+	cout << "Updating brightness" << endl;
+
+	auto brightness = GetPreferedBrightness();
+	SetBrightness(brightness);
+}
+
+void MainLoop(tsc::TaskScheduler* scheduler)
+{
+	while (true)
+	{
+		scheduler->Update();
+		Sleep(5000);
+	}
+}
+
 BYTE GetPreferedBrightness()
 {
 	int hour = GetCurrentHour();
 
-	if (hour > DUSK && hour < DAWN) {
+	if (hour >= DUSK || hour < DAWN) {
 		return BRIGHTNESS_DARK;
 	}
 	else {
@@ -82,10 +122,26 @@ void AwaitExit()
 	cin.get();
 }
 
+BOOL WINAPI ConsoleHandler(DWORD signal) 
+{
+	switch (signal)
+	{
+	case CTRL_C_EVENT:
+	case CTRL_CLOSE_EVENT:
+	case CTRL_LOGOFF_EVENT:
+	case CTRL_SHUTDOWN_EVENT:
+		cout << "Ctrl-C pressed! Starting gracefull exit..." << endl;
+		exit(EXIT_SUCCESS);
+		return TRUE;
+	default:
+		return FALSE;
+	}
+}
+
 void Cleanup()
 {
 	if (!EnableLedControl(false)) {
-		cerr << "Failed to give back LED control!";
+		cerr << "Failed to give back LED control!" << endl;
 	}
 }
 
