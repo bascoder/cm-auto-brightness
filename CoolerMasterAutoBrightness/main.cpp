@@ -24,8 +24,6 @@ int main() {
 
 		auto scheduler = SetupSchedule();
 		MainLoop(scheduler);
-
-		AwaitExit();
 	}
 	catch (const exception& e)
 	{
@@ -116,13 +114,7 @@ void SetBrightness(BYTE brightness)
 	}
 }
 
-void AwaitExit()
-{
-	cout << "Press Any Key To Exit..." << endl;
-	cin.get();
-}
-
-BOOL WINAPI ConsoleHandler(DWORD signal) 
+BOOL WINAPI ConsoleHandler(DWORD signal)
 {
 	switch (signal)
 	{
